@@ -1,0 +1,119 @@
+"""
+Title: Cherry Py Image Upload
+
+Date: 28/07/2019
+
+Author: James McCarthy
+
+Notes:
+
+Todo:
+
+"""
+import cherrypy
+from columnar import columnar
+from datetime import datetime
+import os
+
+class imageServer(object):
+
+    @cherrypy.expose
+    def index(self):
+        with open("index.html", "r") as file:
+            data = file.readlines()
+            page = ''.join(data)
+
+        """--PHOTO FOLDER STUFF--"""
+
+        os.chdir("image")
+        images = os.listdir()
+        os.chdir("..")
+        result = []
+        for item in images:
+            if '.' not in item:
+                result.append("<option>" + item.replace("^", " ") + "</option>")
+        
+        """--PHOTO DISPLAY STUFF--"""
+        
+        
+
+        return str(page).format(''.join(result))
+
+    @cherrypy.expose
+    def upload(self, image, folderSelect, submit):
+        upload_time = datetime.now().strftime("%d_%m_%Y_%H_%M_%S_%f")
+        file_extension = os.path.splitext(image.filename)[1]
+        img = image.file.read()
+        folderSelect = folderSelect.replace(" ", "^")
+        with open("image/" + folderSelect + "/" + upload_time + file_extension, "wb+") as file:
+            file.write(img)
+        with open("upload.html", "r") as file:
+            data = file.readlines()
+            page = ''.join(data)
+        return str(page).format("<h2>Done!</h2>")
+
+    @cherrypy.expose
+    def download(self, folder="/"):
+        with open("download.html", "r") as file:
+            data = file.readlines()
+            page = ''.join(data)
+        if folder == "/":
+            location = """<nav aria-label='breadcrumb'>
+            <ol class='breadcrumb'>
+                <li class='breadcrumb-item active' aria-current='page'>Images</li>
+            </ol>
+            </nav>"""
+        else:
+            location = """<nav aria-label='breadcrumb'>
+            <ol class='breadcrumb'>
+                <li class='breadcrumb-item'><a href='/download'>Images</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{}</li>
+            </ol>
+            </nav>""".format(folder.replace("^", " "))
+        results = ["<table class='table table-dark'><thread><tr><th scope='col'>{}</th></tr></thread><tbody>".format(location)]    
+        if ' ' in folder:
+            folder = folder.replace(" ", "^")
+        if folder == "/":
+            os.chdir("image") 
+            images = os.listdir()
+            os.chdir("..")
+        else:
+            os.chdir("image") 
+            os.chdir(folder)
+            images = os.listdir()
+            os.chdir("../..")
+        for item in images:
+            if '.' not in item:
+                #print("=================================DIR=====================================")
+                results.append("<tr><td><a href='?folder={}' class='btn btn-primary btn-lg'>{}</a></td></tr>".format(item, item.replace("^", " ")))
+        for item in images:
+            if '.' in item:
+                if folder == "/":
+                    results.append("<tr><td><img src=/download/" + item + " class='img-thumbnail image_thumb'></td></tr>")
+                else:
+                    results.append("<tr><td><img src=/download/" + folder + "/"+ item + " class='img-thumbnail image_thumb'></td></tr>")
+        results.append("</tbody></table>")
+        # headers = ["Image", "Link"]
+        # table = columnar(results, headers)
+        return str(page).format("<div class='container'> " + ''.join(results) + "</div>")
+
+    @cherrypy.expose
+    def test(self):
+        return open("test.html")
+
+if __name__ == "__main__":
+    config = {'/download':{
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': "/media/James/Image_Server_V2/image",
+    }, '/styles':{
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': "/media/James/Image_Server_V2/styles"
+    }, '/js':{
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': "/media/James/Image_Server_V2/js"
+    }
+    }
+    cherrypy.config.update({'server.socket_host': '0.0.0.0'})
+    cherrypy.config.update({'server.socket_port': 1337})
+    cherrypy.quickstart(imageServer(), config=config)
+    
